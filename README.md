@@ -1,8 +1,8 @@
-# Admin Guide Q&A System
+# Chat with Check Point Admin Guides
 
 ## Description
 
-This project implements a question-answering system designed to assist IT administrators. It uses natural language processing and machine learning techniques to provide answers to technical questions based on a set of administrator guides. The system reads PDF documents, processes them, and uses OpenAI's language models to generate relevant responses to user queries.
+This project implements a question-answering system designed to assist Check Point administrators. It uses natural language processing and machine learning techniques to provide answers to technical questions based on a set of administrator guides. The system reads PDF documents, processes them, and uses OpenAI's language models to generate relevant responses to user queries.
 
 ## Features
 
