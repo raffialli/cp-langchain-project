@@ -1,30 +1,26 @@
-# Import required libraries
 import os
 from langchain_community.document_loaders import PyMuPDFLoader
 from langchain_community.vectorstores import FAISS
 from langchain_openai import OpenAI, OpenAIEmbeddings
-from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
+from langchain.schema.runnable import RunnablePassthrough
+from langchain_core.output_parsers import StrOutputParser
 
 # Ensure the OpenAI API key is set
-# This checks if the OPENAI_API_KEY environment variable is set and raises an error if it's not
 api_key = os.getenv("OPENAI_API_KEY")
 if not api_key:
     raise ValueError("The OPENAI_API_KEY environment variable is not set. Please set it before running the script.")
 
-# Set up the OpenAI Language Model (LLM)
-# This creates an instance of the OpenAI LLM with a temperature of 0.7 for some randomness in responses
+# Set up the OpenAI LLM with the API key
 llm = OpenAI(temperature=0.7, openai_api_key=api_key)
 
 # Directory containing PDF documents
-# This specifies the folder where the PDF documents are stored
 doc_path = "checkpoint_docs"
 
 # List to store all loaded documents
 documents = []
 
 # Loop through each file in the directory and load PDFs
-# This section reads all PDF files in the specified directory and loads their content
 for filename in os.listdir(doc_path):
     if filename.endswith(".pdf"):
         filepath = os.path.join(doc_path, filename)
@@ -32,12 +28,10 @@ for filename in os.listdir(doc_path):
         documents.extend(loader.load())
 
 # Create embeddings and store them in FAISS for quick retrieval
-# This creates vector embeddings for all loaded documents and stores them in a FAISS index for efficient similarity search
 embeddings = OpenAIEmbeddings(openai_api_key=api_key)
 vectorstore = FAISS.from_documents(documents, embeddings)
 
 # Create a prompt template for the LLM
-# This defines the structure of the prompt that will be sent to the LLM
 prompt_template = """
 You are an expert IT administrator assistant. Your task is to provide clear, step-by-step instructions based on the following administrator guides and the user's question.
 
@@ -57,36 +51,39 @@ If the provided documents do not contain enough information to fully answer the 
 
 Step-by-step Answer:
 """
-
 prompt = PromptTemplate(
     input_variables=["documents", "question"],
     template=prompt_template,
 )
 
-# Create the LLM chain with the prompt and model
-# This sets up the chain that will process the prompt and generate answers
-qa_chain = LLMChain(
-    llm=llm,
-    prompt=prompt
+# Create the runnable sequence
+qa_chain = (
+    {"documents": RunnablePassthrough(), "question": RunnablePassthrough()}
+    | prompt
+    | llm
+    | StrOutputParser()
 )
 
-# Function to answer questions
 def answer_question(query):
     # Retrieve relevant documents
-    # This performs a similarity search to find the 3 most relevant documents for the query
     docs = vectorstore.similarity_search(query, k=3)
     docs_content = "\n".join([doc.page_content for doc in docs])
     
     # Generate an answer using the retrieved documents
-    # This sends the relevant document content and the query to the LLM to generate an answer
-    answer = qa_chain.run(documents=docs_content, question=query)
+    answer = qa_chain.invoke({"documents": docs_content, "question": query})
     
     return answer
 
-# Prompt the user for a question
-query = input("Please enter your question: ")
-
-# Process the user's query
-# This calls the answer_question function with the user's input and prints the response
-response = answer_question(query)
-print("Answer:", response)
+# Main loop to continuously prompt for questions
+while True:
+    # Prompt the user for a question
+    query = input("\nPlease enter your question (or type 'exit' to quit): ")
+    
+    # Check if the user wants to exit
+    if query.lower() == 'exit':
+        print("Thank you for using the Q&A system. Goodbye!")
+        break
+    
+    # Process the user's query
+    response = answer_question(query)
+    print("\nAnswer:", response)
